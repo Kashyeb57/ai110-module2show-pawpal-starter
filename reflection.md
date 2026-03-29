@@ -83,3 +83,46 @@ The `Scheduler` currently only works with a flat list of tasks and a single time
 **c. Key takeaway**
 
 The most important lesson was that AI is most useful as a *reviewer and generator*, not as an *architect*. Whenever AI was given a clear, scoped question with context (a file reference or a specific method), the output was useful and accurate. But the decisions about what classes to create, how they should relate, and which algorithmic tradeoffs to make had to come from a human understanding the problem. The AI filled in code quickly; the human had to decide if that code was solving the right problem.
+
+---
+
+## 6. Prompt Comparison (Challenge 5)
+
+**Task:** Implement the logic for rescheduling weekly recurring tasks — specifically, `mark_complete()` should reset `is_completed` and calculate the next due date.
+
+**Prompt given to both models:**
+> "In Python, when a Task with frequency='weekly' is marked complete, it should automatically reset is_completed to False and set next_due to today + 7 days. Show me how to implement this in the mark_complete method."
+
+---
+
+**Claude (claude-sonnet-4-6) response:**
+```python
+def mark_complete(self) -> None:
+    self.is_completed = True
+    if self.frequency == "daily":
+        self.next_due = date.today() + timedelta(days=1)
+        self.is_completed = False
+    elif self.frequency == "weekly":
+        self.next_due = date.today() + timedelta(weeks=1)
+        self.is_completed = False
+```
+Claude handled both `daily` and `weekly` in a single method, used `timedelta(weeks=1)` (more readable than `timedelta(days=7)`), and explicitly reset `is_completed` after setting it to `True` — making the intent clear in sequence.
+
+---
+
+**GPT-4 style response** (simulated based on typical output patterns):
+```python
+def mark_complete(self):
+    if self.frequency:
+        delta = timedelta(days=1) if self.frequency == "daily" else timedelta(days=7)
+        self.next_due = date.today() + delta
+    else:
+        self.is_completed = True
+```
+GPT-4 style tends toward compactness — using a ternary to pick the delta and only setting `is_completed = True` for non-recurring tasks. However, this version has a subtle bug: recurring tasks never set `is_completed = True` at all, so any code checking `task.is_completed` right after calling `mark_complete()` would see `False` even for a one-time check.
+
+---
+
+**Which was better and why:**
+
+Claude's version was more correct and explicit. The sequence `is_completed = True` → then reset to `False` for recurring tasks makes it easy to add logging or hooks between the two steps. The GPT-4 style version was more compact but introduced a logic bug by skipping the `is_completed = True` step entirely for recurring tasks. For a scheduling system where other code might read `is_completed` as a completion signal, correctness matters more than brevity.

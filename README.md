@@ -55,6 +55,16 @@ python -m pytest
 
 **Confidence level: 4/5** — all 14 tests pass. The main untested area is the Streamlit UI layer and multi-pet scheduling with larger task sets.
 
+## Optional Extensions Implemented
+
+| Challenge | What was built |
+|---|---|
+| **1 — Weighted Prioritization** | `Task.urgency_score()` computes a float score (priority weight + frequency bonus − duration penalty). `Scheduler.weighted_generate_plan()` uses this instead of fixed priority tiers. Toggled in the UI. Agent Mode was used to design the scoring formula and integrate it alongside the existing `generate_plan()`. |
+| **2 — JSON Persistence** | `Owner.save_to_json()` and `Owner.load_from_json()` use custom `to_dict()`/`from_dict()` methods on all three classes. `app.py` loads `data.json` on startup so pets and tasks survive page refreshes. |
+| **3 — Priority Color-Coding** | 🔴 High / 🟡 Medium / 🟢 Low emoji labels in all Streamlit tables. |
+| **4 — Professional Formatting** | Task-type emojis (🦮 walk, 🍽️ feeding, 💊 meds, ✂️ grooming, 🧩 enrichment), urgency score column, metric row, and toggle for weighted mode. |
+| **5 — Multi-Model Comparison** | Documented in `reflection.md` section 6 — Claude vs GPT-4 style responses for the weekly recurrence logic. |
+
 ## Smarter Scheduling
 
 PawPal+ goes beyond a basic task list with four algorithmic features:

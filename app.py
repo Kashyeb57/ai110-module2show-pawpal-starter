@@ -1,23 +1,71 @@
+import os
 import streamlit as st
 from pawpal_system import Owner, Pet, Task, Scheduler
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
-st.title("PawPal+")
-st.caption("Smart daily pet care scheduling")
+# ---------------------------------------------------------------------------
+# Helpers: emojis for priority and task type (Challenges 3 & 4)
+# ---------------------------------------------------------------------------
+PRIORITY_EMOJI = {"high": "🔴", "medium": "🟡", "low": "🟢"}
+TYPE_EMOJI = {
+    "walk":       "🦮",
+    "feeding":    "🍽️",
+    "meds":       "💊",
+    "grooming":   "✂️",
+    "enrichment": "🧩",
+}
+
+def priority_label(p: str) -> str:
+    return f"{PRIORITY_EMOJI.get(p, '')} {p.upper()}"
+
+def type_label(t: str) -> str:
+    return f"{TYPE_EMOJI.get(t, '')} {t}"
+
 
 # ---------------------------------------------------------------------------
 # Session state initialisation
 # ---------------------------------------------------------------------------
+DATA_FILE = "data.json"
+
 if "owner" not in st.session_state:
-    st.session_state.owner = None
+    # Challenge 2: load persisted data on startup if file exists
+    if os.path.exists(DATA_FILE):
+        try:
+            st.session_state.owner = Owner.load_from_json(DATA_FILE)
+            st.session_state.pet = (
+                st.session_state.owner.pets[0] if st.session_state.owner.pets else None
+            )
+        except Exception:
+            st.session_state.owner = None
+            st.session_state.pet = None
+    else:
+        st.session_state.owner = None
+        st.session_state.pet = None
+
 if "pet" not in st.session_state:
     st.session_state.pet = None
+
+if "use_weighted" not in st.session_state:
+    st.session_state.use_weighted = False
+
+# ---------------------------------------------------------------------------
+# Header
+# ---------------------------------------------------------------------------
+st.title("🐾 PawPal+")
+st.caption("Smart daily pet care scheduling")
+
+if st.session_state.owner:
+    st.info(
+        f"Loaded saved data for **{st.session_state.owner.name}** "
+        f"({len(st.session_state.owner.pets)} pet(s), "
+        f"{len(st.session_state.owner.get_all_tasks())} task(s))"
+    )
 
 # ---------------------------------------------------------------------------
 # Section 1: Owner + Pet setup
 # ---------------------------------------------------------------------------
-st.subheader("1. Owner & Pet Info")
+st.subheader("1. 👤 Owner & Pet Info")
 
 with st.form("setup_form"):
     col1, col2 = st.columns(2)
@@ -35,6 +83,7 @@ if submitted:
     owner.add_pet(pet)
     st.session_state.owner = owner
     st.session_state.pet   = pet
+    owner.save_to_json(DATA_FILE)   # Challenge 2: persist immediately
     st.success(f"Saved {owner_name}'s pet {pet_name} ({species}) — {available_mins} min budget")
 
 st.divider()
@@ -42,7 +91,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Section 2: Add tasks
 # ---------------------------------------------------------------------------
-st.subheader("2. Add Care Tasks")
+st.subheader("2. 📋 Add Care Tasks")
 
 if st.session_state.pet is None:
     st.info("Complete Step 1 before adding tasks.")
@@ -60,7 +109,7 @@ else:
             duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
         with col5:
             frequency = st.selectbox("Frequency", ["one-time", "daily", "weekly"])
-        add_task = st.form_submit_button("Add task")
+        add_task = st.form_submit_button("➕ Add task")
 
     if add_task:
         task = Task(
@@ -71,29 +120,34 @@ else:
             frequency=None if frequency == "one-time" else frequency,
         )
         st.session_state.pet.add_task(task)
-        st.success(f"Added: {task_name} ({duration} min, {priority} priority, {frequency})")
+        st.session_state.owner.save_to_json(DATA_FILE)   # Challenge 2: persist
+        st.success(
+            f"{TYPE_EMOJI.get(task_type, '')} Added: **{task_name}** "
+            f"({duration} min, {priority_label(priority)}, {frequency})"
+        )
 
-    # --- Conflict warnings shown live as tasks are added ---
     all_tasks = st.session_state.owner.get_all_tasks()
     if all_tasks:
         scheduler = Scheduler(st.session_state.owner)
-        conflicts = scheduler.detect_conflicts(all_tasks)
-        if conflicts:
-            for warning in conflicts:
-                st.warning(f"Task conflict detected: {warning}")
 
-        # Show tasks sorted by duration (shortest first)
+        # Conflict warnings
+        conflicts = scheduler.detect_conflicts(all_tasks)
+        for warning in conflicts:
+            st.warning(f"⚠️ Task conflict: {warning}")
+
+        # Sorted task table with emoji labels (Challenges 3 & 4)
         st.markdown("**Current tasks (sorted shortest first):**")
         sorted_tasks = scheduler.sort_by_time(all_tasks)
         st.table([
             {
-                "Task": t.name,
-                "Type": t.task_type,
-                "Duration (min)": t.duration_minutes,
-                "Priority": t.priority,
-                "Frequency": t.frequency or "one-time",
+                "Task": task.name,
+                "Type": type_label(task.task_type),
+                "Duration": f"{task.duration_minutes} min",
+                "Priority": priority_label(task.priority),
+                "Frequency": task.frequency or "one-time",
+                "Score": f"{task.urgency_score():.1f}",
             }
-            for t in sorted_tasks
+            for task in sorted_tasks
         ])
     else:
         st.info("No tasks yet. Add one above.")
@@ -103,9 +157,16 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Section 3: Generate schedule
 # ---------------------------------------------------------------------------
-st.subheader("3. Generate Daily Schedule")
+st.subheader("3. 📅 Generate Daily Schedule")
 
-if st.button("Generate schedule"):
+use_weighted = st.toggle(
+    "Use weighted scoring (Challenge 1)",
+    value=st.session_state.use_weighted,
+    help="Weighted mode scores tasks by priority + recurrence bonus - duration penalty instead of fixed priority tiers.",
+)
+st.session_state.use_weighted = use_weighted
+
+if st.button("⚡ Generate schedule"):
     if st.session_state.owner is None:
         st.warning("Please complete Step 1 first.")
     elif not st.session_state.owner.get_all_tasks():
@@ -113,44 +174,47 @@ if st.button("Generate schedule"):
     else:
         scheduler = Scheduler(st.session_state.owner)
 
-        # --- Conflict check before generating ---
+        # Conflict check before generating
         conflicts = scheduler.detect_conflicts(st.session_state.owner.get_all_tasks())
         if conflicts:
-            st.warning("Heads up — conflicts exist in your task list. Review them in Step 2.")
+            st.warning("⚠️ Heads up — conflicts exist in your task list:")
             for c in conflicts:
                 st.caption(f"• {c}")
 
-        plan = scheduler.generate_plan()
+        plan = (
+            scheduler.weighted_generate_plan()
+            if use_weighted
+            else scheduler.generate_plan()
+        )
 
-        # --- Summary metric row ---
+        mode_label = "weighted scoring" if use_weighted else "priority order"
         col1, col2, col3 = st.columns(3)
         col1.metric("Scheduled", f"{len(plan.scheduled_tasks)} tasks")
         col2.metric("Time used", f"{plan.total_duration} min")
-        col3.metric("Time remaining", f"{st.session_state.owner.available_minutes - plan.total_duration} min")
+        col3.metric("Time remaining",
+                    f"{st.session_state.owner.available_minutes - plan.total_duration} min")
 
-        # --- Scheduled tasks ---
         if plan.scheduled_tasks:
-            st.success(f"Daily plan ready for {plan.date}")
+            st.success(f"Daily plan ready for {plan.date} ({mode_label})")
             st.markdown("**Scheduled Tasks:**")
             st.table([
                 {
                     "Task": t.name,
-                    "Type": t.task_type,
-                    "Duration (min)": t.duration_minutes,
-                    "Priority": t.priority.upper(),
+                    "Type": type_label(t.task_type),
+                    "Duration": f"{t.duration_minutes} min",
+                    "Priority": priority_label(t.priority),
                     "Recurring": t.frequency or "one-time",
+                    "Score": f"{t.urgency_score():.1f}",
                 }
                 for t in plan.scheduled_tasks
             ])
 
-        # --- Skipped tasks ---
         if plan.skipped_tasks:
             st.error(f"{len(plan.skipped_tasks)} task(s) could not fit in today's schedule:")
             st.table([
-                {"Skipped Task": t.name, "Reason": t.reason_skipped}
+                {"Skipped Task": t.name, "Priority": priority_label(t.priority), "Reason": t.reason_skipped}
                 for t in plan.skipped_tasks
             ])
 
-        # --- Reasoning ---
-        with st.expander("Why was this plan chosen?"):
+        with st.expander("💡 Why was this plan chosen?"):
             st.info(plan.explain_reasoning())
