@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 
 PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
@@ -13,10 +13,18 @@ class Task:
     priority: str           # high, medium, low
     is_completed: bool = False
     reason_skipped: Optional[str] = None
+    frequency: Optional[str] = None     # "daily", "weekly", or None (one-shot)
+    next_due: Optional[date] = None     # next date this task is due
 
     def mark_complete(self) -> None:
-        """Mark this task as completed."""
+        """Mark task complete; if recurring, reset and set next due date automatically."""
         self.is_completed = True
+        if self.frequency == "daily":
+            self.next_due = date.today() + timedelta(days=1)
+            self.is_completed = False   # auto-reset for tomorrow
+        elif self.frequency == "weekly":
+            self.next_due = date.today() + timedelta(weeks=1)
+            self.is_completed = False   # auto-reset for next week
 
 
 @dataclass
@@ -66,9 +74,38 @@ class Scheduler:
         self.time_limit = owner.get_available_time()
 
     def prioritize_tasks(self) -> list[Task]:
-        """Sort all tasks by priority (high → medium → low), skipping completed ones."""
+        """Sort all tasks by priority (high → medium → low), then shortest duration first."""
         tasks = [t for t in self.owner.get_all_tasks() if not t.is_completed]
-        return sorted(tasks, key=lambda t: PRIORITY_ORDER.get(t.priority, 99))
+        return sorted(tasks, key=lambda t: (PRIORITY_ORDER.get(t.priority, 99), t.duration_minutes))
+
+    def sort_by_time(self, tasks: list[Task]) -> list[Task]:
+        """Return tasks sorted by duration, shortest first."""
+        return sorted(tasks, key=lambda t: t.duration_minutes)
+
+    def filter_by_status(self, completed: bool = False) -> list[Task]:
+        """Return all tasks matching the given completion status across all pets."""
+        return [t for t in self.owner.get_all_tasks() if t.is_completed == completed]
+
+    def filter_by_pet(self, pet_name: str) -> list[Task]:
+        """Return tasks belonging to the pet with the given name (case-insensitive)."""
+        for pet in self.owner.pets:
+            if pet.name.lower() == pet_name.lower():
+                return list(pet.tasks)
+        return []
+
+    def detect_conflicts(self, tasks: list[Task]) -> list[str]:
+        """Return warning messages for duplicate task types in the given task list."""
+        seen: dict[str, str] = {}   # task_type → first task name
+        warnings: list[str] = []
+        for task in tasks:
+            if task.task_type in seen:
+                warnings.append(
+                    f"Conflict: '{task.name}' and '{seen[task.task_type]}' "
+                    f"are both '{task.task_type}' tasks"
+                )
+            else:
+                seen[task.task_type] = task.name
+        return warnings
 
     def fits_within_time(self, task: Task, time_used: int) -> bool:
         """Return True if the task fits within the remaining available time."""

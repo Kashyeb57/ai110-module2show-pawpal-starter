@@ -32,6 +32,15 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Smarter Scheduling
+
+PawPal+ goes beyond a basic task list with four algorithmic features:
+
+- **Sort by time** — tasks are sorted shortest-first within the same priority level, maximising the number of tasks that fit in the owner's daily time budget.
+- **Filter by pet or status** — retrieve tasks for a specific pet by name, or filter by completion status (completed vs. pending).
+- **Recurring tasks** — tasks can be marked `daily` or `weekly`. Calling `mark_complete()` on a recurring task automatically resets it and calculates the next due date using `timedelta`.
+- **Conflict detection** — the scheduler scans the task list for duplicate `task_type` entries and returns plain-English warnings (e.g. two "feeding" tasks in the same plan), without crashing the app.
+
 ### Suggested workflow
 
 1. Read the scenario carefully and identify requirements and edge cases.

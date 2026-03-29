@@ -32,13 +32,11 @@ After an AI review of the skeleton, three issues were identified and fixed:
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler considers two constraints: total available time (owner's daily budget in minutes) and task priority (high/medium/low). Within the same priority level, it uses duration as a tiebreaker — shorter tasks are scheduled first to maximise the number of tasks that fit. Priority was chosen as the primary constraint because skipping a high-priority task (like medication) is more harmful than skipping a low-priority one (like enrichment).
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+The conflict detector only flags tasks that share the same `task_type` (e.g. two "feeding" tasks), rather than checking for overlapping time windows. This means it catches logical duplicates (feeding a pet twice in one plan) but does not detect time-based overlaps if tasks were assigned explicit start times. This tradeoff is reasonable for this scenario because PawPal+ does not schedule tasks at fixed times — it only builds an ordered list. A lightweight type-based check is sufficient and avoids the complexity of a full interval-overlap algorithm.
 
 ---
 

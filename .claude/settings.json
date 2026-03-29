@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"from pawpal_system import Owner, Pet, Task, Scheduler; print\\(''Import OK''\\)\")",
+      "Bash(python main.py)",
+      "Bash(pip show:*)"
+    ]
+  }
+}
