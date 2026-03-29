@@ -32,6 +32,28 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Testing PawPal+
+
+Run the full test suite with:
+
+```bash
+python -m pytest
+```
+
+**What the tests cover:**
+
+- Task completion — `mark_complete()` correctly sets `is_completed`
+- Task addition — adding tasks to a `Pet` grows its task list
+- Sorting correctness — `sort_by_time()` returns tasks shortest-first; `prioritize_tasks()` orders high before low
+- Recurrence logic — daily/weekly tasks auto-reset `is_completed` and calculate `next_due` via `timedelta`
+- Conflict detection — duplicate `task_type` in a plan triggers a warning; unique types return no warnings
+- Edge cases — pet with no tasks produces an empty plan; tasks exceeding the time budget appear in `skipped_tasks`
+- Filtering — `filter_by_pet()` and `filter_by_status()` return the correct subsets
+
+**Confidence level: ⭐⭐⭐⭐ (4/5)** — all 14 tests pass. The main untested area is the Streamlit UI layer and multi-pet scheduling with larger task sets.
+
+---
+
 ## Smarter Scheduling
 
 PawPal+ goes beyond a basic task list with four algorithmic features:
