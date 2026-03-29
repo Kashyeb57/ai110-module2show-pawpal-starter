@@ -10,18 +10,21 @@ Three core user actions:
 2. **Add/edit care tasks** — The user creates tasks such as walks, feeding, medication, grooming, or enrichment. Each task has at minimum a name, duration (in minutes), and priority level (high/medium/low).
 3. **Generate and view a daily plan** — The user triggers the scheduler, which selects and orders tasks that fit within the owner's available time, ranked by priority. The app displays the resulting schedule and explains why tasks were included or excluded.
 
-Building blocks:
+Five classes were designed:
 
-- **Owner**: Holds `name` and `available_minutes` (daily time budget for pet care). Can `add_pet()` and `get_available_time()`.
-- **Pet**: Holds `name`, `species`, `age`, and a reference to its `owner`. Can `get_info()`.
-- **Task**: Holds `name`, `task_type` (walk/feeding/meds/grooming/enrichment), `duration_minutes`, `priority` (high/medium/low), and `is_completed`. Can `mark_complete()`.
-- **Scheduler**: Holds references to `owner`, `pet`, and a list of `tasks`. Can `generate_plan()`, `prioritize_tasks()`, and `fits_within_time(task)`.
-- **DailyPlan**: Holds `scheduled_tasks`, `skipped_tasks`, `total_duration`, and `date`. Can `display()` and `explain_reasoning()`.
+- **Owner**: Responsible for storing who the owner is and how much daily time they have for pet care. Holds `name`, `available_minutes`, `preferences`, and a list of `pets`. Methods: `add_pet()`, `get_available_time()`.
+- **Pet**: Represents the animal being cared for. Holds `name`, `species`, `age`, a back-reference to `owner`, and a list of `tasks`. Method: `get_info()`.
+- **Task**: Represents a single care activity. Holds `name`, `task_type`, `duration_minutes`, `priority`, `is_completed`, and `reason_skipped`. Method: `mark_complete()`.
+- **Scheduler**: The core logic engine. Takes an `Owner`, a `Pet`, and a list of `Tasks`, and produces a `DailyPlan`. Methods: `generate_plan()`, `prioritize_tasks()`, `fits_within_time()`.
+- **DailyPlan**: The output of the scheduler. Holds `scheduled_tasks`, `skipped_tasks`, `total_duration`, and `date`. Methods: `display()`, `explain_reasoning()`.
 
 **b. Design changes**
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+After an AI review of the skeleton, three issues were identified and fixed:
+
+1. **`Pet` was missing a `tasks` list** — The original design only stored tasks on the `Scheduler`. This created a missing direct relationship between a pet and its care tasks. A `tasks: list[Task]` field was added to `Pet` so the pet directly owns its tasks, matching the UML intent.
+2. **`Owner.pets` was untyped** — Changed from `list` to `list[Pet]` for type safety and clarity.
+3. **`Task` was missing `reason_skipped`** — `DailyPlan.explain_reasoning()` needs to explain why tasks were skipped, but there was nowhere on the task to store that reason. Added `reason_skipped: Optional[str]` to `Task`.
 
 ---
 

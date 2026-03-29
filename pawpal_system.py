@@ -7,7 +7,7 @@ class Owner:
     name: str
     available_minutes: int
     preferences: Optional[str] = None
-    pets: list = field(default_factory=list)
+    pets: list["Pet"] = field(default_factory=list)
 
     def add_pet(self, pet: "Pet") -> None:
         pass
@@ -22,6 +22,7 @@ class Pet:
     species: str
     age: int
     owner: Optional["Owner"] = None
+    tasks: list["Task"] = field(default_factory=list)
 
     def get_info(self) -> str:
         pass
@@ -34,6 +35,7 @@ class Task:
     duration_minutes: int
     priority: str   # high, medium, low
     is_completed: bool = False
+    reason_skipped: Optional[str] = None
 
     def mark_complete(self) -> None:
         pass
